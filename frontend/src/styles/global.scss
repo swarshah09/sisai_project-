@@ -1,9 +1,82 @@
-$primary-color: #3498db;
-$font-stack: "Arial", sans-serif;
-
+/* src/styles/global.css */
 body {
-  font-family: $font-stack;
-  background-color: #f4f4f4;
+  font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
+  background-color: #f4f4f9;
+  color: #333;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #6200ea;
+  padding: 1rem 2rem;
+  color: white;
+}
+
+.navbar-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  text-decoration: none;
+}
+
+.navbar-links {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+}
+
+.navbar-links a {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.home, .login, .dashboard, .admin-panel {
+  padding: 2rem;
+  text-align: center;
+}
+
+.btn {
+  background-color: #6200ea;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.btn:hover {
+  background-color: #3700b3;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.tag-card {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 200px;
+  text-align: center;
+}
+
+.tag-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.tag-card p {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: #666;
 }

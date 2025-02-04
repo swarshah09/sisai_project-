@@ -1,35 +1,26 @@
-import axios from "axios";
+import axios from 'axios';
 
-const API_BASE_URL = "http://127.0.0.1:8000";
-
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+const api = axios.create({
+  baseURL: 'http://localhost:8000',
 });
 
-export const login = async (username, password) => {
-    try {
-      const response = await api.post("/token", new URLSearchParams({ username, password }));
-      localStorage.setItem("token", response.data.access_token);
-      return true;
-    } catch (error) {
-      console.error("Login failed:", error);
-      return false;
-    }
-  };
-  
-  export const fetchIoTData = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await api.get("/iot-data", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching IoT data:", error);
-      return [];
-    }
-  };
-  
+export const signup = (user) => {
+  return api.post('/signup', user).then(res => res.data);
+};
+
+export const login = (username, password) => {
+  return api.post('/token', `username=${username}&password=${password}`, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  }).then(res => res.data);
+};
+
+
+export const getTags = () => {
+  return api.get('/tags', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(res => res.data);
+};
+
+export const createTag = (tag) => {
+  return api.post('/tags', tag, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(res => res.data);
+};

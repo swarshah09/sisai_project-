@@ -1,14 +1,29 @@
-import React from "react";
-import AppRoutes from "./routes"; // Import routes
-import "./styles/global.scss"; // Global styles
-import "./index.css"; // Index styles
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Home from './pages/Home.js';
+import Login from './pages/Login.js';
+import Signup from './pages/Signup.js';
+import Dashboard from './pages/Dashboard.js';
+import AdminPanel from './pages/AdminPanel.js';
+import Navbar from './components/Navbar.js';
+import './styles/global.scss';
+import PrivateRoute from './components/PrivateRoute.js';
 
-const App = () => {
+function App() {
   return (
-    <div className="app-container">
-      <AppRoutes /> {/* Load the routes here */}
-    </div>
+    <Router>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route element={<PrivateRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<AdminPanel />} />
+        </Route>
+      </Routes>
+    </Router>
   );
-};
+}
 
 export default App;

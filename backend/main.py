@@ -1,70 +1,92 @@
-from fastapi import FastAPI, WebSocket
-from websocket import websocket_manager
-from fastapi import Depends, HTTPException
-from .auth import router as auth_router, oauth2_scheme
-from jose import jwt
-from influxdb_client import InfluxDBClient   
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import List
+from models import User, Tag as ORMTag  # Import ORM models from models.py
+from database import get_db, SessionLocal
+from auth import authenticate_user, create_access_token, get_current_user
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-from .influx import store_iot_data
-from .websocket import websocket_manager
+from sqlalchemy import Column, Integer, String
+from database import Base
+from auth import get_password_hash
+
 
 app = FastAPI()
-load_dotenv()
-
-INFLUX_URL = os.getenv("INFLUXDB_URL")
-INFLUX_TOKEN = os.getenv("INFLUXDB_TOKEN")
-INFLUX_ORG = os.getenv("INFLUXDB_ORG")
-INFLUX_BUCKET = os.getenv("INFLUXDB_BUCKET")
-SECRET_KEY = "mysecretkey"  # Or load from .env
-
-
-client = InfluxDBClient(url=influxdb_url, token=influxdb_token)
-query_api = client.query_api()
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (for development)
+    allow_origins=["*"],  # You can specify a list of allowed origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all HTTP methods
+    allow_headers=["*"],  # Allows all headers
 )
-# Include auth router
-app.include_router(auth_router)
+# OAuth2 scheme for token-based authentication
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def verify_token(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload["sub"]
-    except:
-        raise HTTPException(status_code=401, detail="Invalid token")
-@app.post("/store-iot-data")
-def store_data(temperature: float, humidity: float):
-    store_iot_data(temperature, humidity)
-    return {"message": "Data stored successfully"}
+# Pydantic model for data validation (this does not interact with the database)
+class Tag(BaseModel):
+    id: int
+    name: str
 
-@app.get("/iot-data")
-def get_iot_data():
-    query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h)'
-    result = query_api.query(query)
-    return {"data": result}
+    class Config:
+        orm_mode = True  # Tells Pydantic to treat ORM models as dictionaries
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class TagBase(BaseModel):
+    name: str
+
+class TagCreate(TagBase):
+    pass
+
+class TagResponse(TagBase):
+    id: int
+
+    class Config:
+        from_attributes = True  # FastAPI now uses 'from_attributes' instead of 'orm_mode'
+
+@app.post("/signup")
+async def signup(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    hashed_password = get_password_hash(user.password)
+    new_user = User(username=user.username, email=user.email, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "User created successfully"}
 
 
-# Example function to write data to InfluxDB
-def write_data(measurement, fields):
-    write_api = client.write_api()
-    point = {
-        "measurement": measurement,
-        "fields": fields,
-    }
-    write_api.write(bucket=influxdb_bucket, org=influxdb_org, record=point)
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket_manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await websocket_manager.broadcast(f"Client says: {data}")
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket)
+@app.get("/users/me")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@app.post("/tags/", response_model=TagResponse)
+async def create_tag(tag: TagCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_tag = ORMTag(name=tag.name, user_id=current_user.id)
+    db.add(db_tag)
+    db.commit()
+    db.refresh(db_tag)
+    return db_tag
+
+@app.get("/tags/", response_model=List[TagResponse])
+async def read_tags(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    tags = db.query(ORMTag).filter(ORMTag.user_id == current_user.id).all()
+    return tags
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,17 +1,21 @@
-from influxdb_client import InfluxDBClient, Point
-from dotenv import load_dotenv
-import os
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-load_dotenv()
+# Database URL (you can switch this to PostgreSQL, MySQL, etc., when needed)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 
-INFLUXDB_URL = os.getenv("INFLUXDB_URL")
-INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN")
-INFLUXDB_ORG = os.getenv("INFLUXDB_ORG")
-INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET")
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN)
+Base = declarative_base()
 
-def write_data(measurement: str, value: float):
-    write_api = client.write_api()
-    point = Point(measurement).field("value", value)
-    write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
+# Dependency function to get a database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
